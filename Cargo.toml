@@ -1,0 +1,22 @@
+[package]
+name = "wp-mini-epub"
+version = "0.2.0-alpha.2"
+edition = "2024"
+description = "Minimal async Wattpad to EPUB downloader | Extremely minimal."
+license = "AGPL-3.0-only"
+documentation = "https://docs.rs/wp-mini-epub"
+homepage = "https://wprs.dev/mini-epub"
+repository = "https://github.com/WattDownload/wp-mini-epub"
+authors = ["ZhiFenBL"]
+
+[dependencies]
+anyhow = "1.0.99"
+futures = "0.3.31"
+iepub = "1.1.0"
+lol_html = "2.6.0"
+quick-xml = { version = "0.38.3", features = ["serde"] }
+reqwest = "0.12.23"
+thiserror = "2.0.16"
+tracing = "0.1.41"
+wp-mini = "0.1.0-alpha.4"
+zip = "4.6.1"
