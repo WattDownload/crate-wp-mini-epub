@@ -2,7 +2,7 @@
   <img src="logo.png" alt="WattDownload Logo" width="200px">
 </p>
 
-<h1 align="center">Crate | WP-MINI</h1>
+<h1 align="center">Crate | WP-MINI-EPUB</h1>
 
 <p align="center">
   Eextremely minimal epub (v3) generator for WP. <br/>
