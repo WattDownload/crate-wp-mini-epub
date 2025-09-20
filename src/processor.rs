@@ -194,8 +194,8 @@ async fn prepare_epub_builder(
     info!(author, title = story_title, "Building EPUB file");
 
     let mut epub_builder = EpubBuilder::default()
-        .with_title(story_title)
-        .with_creator(html::escape_xml_chars(author))
+        .with_title(html::escape_xml_chars_for_title(story_title))
+        .with_creator(author)
         .with_description(html::escape_xml_chars(story_description));
 
     if let Some(cover_url) = story.cover.as_deref() {
