@@ -13,10 +13,6 @@ pub(super) fn escape_xml_chars(s: &str) -> String {
         .replace('\'', "&apos;")
 }
 
-pub(super) fn escape_xml_chars_for_title(s: &str) -> String {
-    s.replace('&', "&amp;")
-}
-
 pub(super) fn re_encode_html(html_fragment: &str) -> Result<String> {
     let wrapped_html = format!("<root>{}</root>", html_fragment);
     let mut reader = Reader::from_str(&wrapped_html);
