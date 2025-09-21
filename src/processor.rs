@@ -5,7 +5,7 @@ use super::{
 use crate::error::AppError;
 use anyhow::{anyhow, Result};
 use futures::stream::{self, StreamExt};
-use iepub::prelude::{EpubBuilder, EpubHtml};
+use zepub::prelude::{EpubBuilder, EpubHtml};
 use reqwest::Client;
 use std::path::PathBuf;
 use std::{
