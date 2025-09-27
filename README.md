@@ -25,6 +25,9 @@
 - Allows to choose whether to embed images or not.
 - Authenticated Downloads. 
 
+> [!TIP]
+> npm pacakge is available: npm i wp-mini-epub
+
 ## Get Started
 - Add to your project with: 
 
