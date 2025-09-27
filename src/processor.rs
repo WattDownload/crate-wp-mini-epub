@@ -7,7 +7,8 @@ use anyhow::{anyhow, Result};
 use futures::stream::{self, StreamExt};
 use zepub::prelude::{EpubBuilder, EpubHtml};
 use reqwest::Client;
-use std::path::PathBuf;
+#[cfg(not(target_arch = "wasm32"))]
+use std::path::PathBuf; // Excluded for wasm32
 use std::{
     collections::HashMap,
     io::{Cursor, Read},
@@ -22,11 +23,14 @@ use zip::ZipArchive;
 
 /// Downloads and processes a Wattpad story, saving the result as an EPUB file.
 ///
+/// Excluded for wasm32
+///
 /// # Arguments
 /// * `output_path` - The directory where the final `.epub` file will be saved.
 ///
 /// # Returns
 /// A `Result` containing the full `PathBuf` to the generated file.
+#[cfg(not(target_arch = "wasm32"))]
 #[instrument(skip(client, concurrent_requests), fields(id = story_id, path = %output_path.display()))]
 pub async fn download_story_to_file(
     client: &Client,
