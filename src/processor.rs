@@ -59,6 +59,7 @@ pub async fn download_story_to_file(
 
     info!(path = %final_path.display(), "Successfully generated EPUB file");
     Ok(StoryDownload {
+        sanitized_title: sanitized_title,
         epub_response: final_path,
         metadata: story_metadata,
     })
@@ -76,7 +77,7 @@ pub async fn download_story_to_memory(
     concurrent_requests: usize,
     extra_fields: Option<&[StoryField]>,
 ) -> Result<StoryDownload<Vec<u8>>> {
-    let (epub_builder, _, story_metadata) = prepare_epub_builder(
+    let (epub_builder, sanitized_title, story_metadata) = prepare_epub_builder(
         client,
         story_id,
         embed_images,
@@ -94,6 +95,7 @@ pub async fn download_story_to_memory(
         "Successfully generated EPUB in memory"
     );
     Ok(StoryDownload {
+        sanitized_title: sanitized_title,
         epub_response: epub_bytes,
         metadata: story_metadata,
     })
