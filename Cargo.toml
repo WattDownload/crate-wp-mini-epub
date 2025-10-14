@@ -1,8 +1,8 @@
 [package]
 name = "wp-mini-epub"
-version = "0.6.0-alpha.1"
+version = "0.7.0-alpha.1"
 edition = "2024"
-description = "Minimal async Wattpad to EPUB downloader | Extremely minimal."
+description = "Minimal async WP to EPUB downloader | Extremely minimal."
 license = "AGPL-3.0-only"
 documentation = "https://docs.rs/wp-mini-epub"
 homepage = "https://wprs.dev/mini-epub"
@@ -15,13 +15,14 @@ crate-type = ["cdylib", "rlib"]
 [dependencies]
 anyhow = "1.0.100"
 futures = "0.3.31"
-zepub = "1.1.5"
-lol_html = "2.6.0"
+iepub = "1.2.0"
+lol_html = "2.7.0"
 quick-xml = { version = "0.38.3", features = ["serde"] }
-reqwest = "0.12.23"
-thiserror = "2.0.16"
+reqwest = "0.12.24"
+sanitize-filename = "0.6.0"
+thiserror = "2.0.17"
 tracing = "0.1.41"
-wp-mini = "0.1.0-alpha.5"
-zip = "5.1.1"
+wp-mini = "0.1.1"
+zip = "6.0.0"
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 getrandom = { version = "0.3.3", features = ["wasm_js"] }

@@ -141,12 +141,3 @@ pub(super) fn infer_extension_from_data(data: &[u8]) -> Option<&str> {
         _ => None,
     }
 }
-
-pub(super) fn sanitize_filename(name: &str) -> String {
-    name.chars()
-        .map(|c| match c {
-            '<' | '>' | ':' | '"' | '/' | '\\' | '|' | '?' | '*' => '_',
-            _ => c,
-        })
-        .collect()
-}

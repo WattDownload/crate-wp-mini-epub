@@ -1,23 +1,26 @@
-use super::{
-    html,
-    models::{ImageAsset, ProcessedChapter},
-};
+use super::{html, lang_util, models::{ImageAsset, ProcessedChapter}};
 use crate::error::AppError;
+use crate::types::StoryDownload;
 use anyhow::{anyhow, Result};
 use futures::stream::{self, StreamExt};
-use zepub::prelude::{EpubBuilder, EpubHtml};
+use iepub::prelude::{EpubBuilder, EpubHtml};
 use reqwest::Client;
-#[cfg(not(target_arch = "wasm32"))]
-use std::path::PathBuf; // Excluded for wasm32
+use sanitize_filename::{sanitize_with_options, Options};
+#[cfg(not(target_arch = "wasm32"))] // Excluded for wasm32
+use std::path::PathBuf;
 use std::{
     collections::HashMap,
     io::{Cursor, Read},
     path::Path,
 };
 use tracing::{info, instrument, warn};
-use wp_mini::field::{PartStubField, StoryField, UserStubField};
+use wp_mini::field::{LanguageField, PartStubField, StoryField, UserStubField};
+use wp_mini::types::StoryResponse;
 use wp_mini::WattpadClient;
 use zip::ZipArchive;
+
+static PLACEHOLDER_IMAGE_DATA: &[u8] = include_bytes!("../assets/placeholder.jpg");
+static PLACEHOLDER_EPUB_PATH: &str = "images/placeholder.jpg";
 
 // --- PUBLIC API FUNCTIONS ---
 
@@ -38,9 +41,16 @@ pub async fn download_story_to_file(
     embed_images: bool,
     concurrent_requests: usize,
     output_path: &Path,
-) -> Result<PathBuf> {
-    let (epub_builder, sanitized_title) =
-        prepare_epub_builder(client, story_id, embed_images, concurrent_requests).await?;
+    extra_fields: Option<&[StoryField]>,
+) -> Result<StoryDownload<PathBuf>> {
+    let (epub_builder, sanitized_title, story_metadata) = prepare_epub_builder(
+        client,
+        story_id,
+        embed_images,
+        concurrent_requests,
+        extra_fields,
+    )
+    .await?;
 
     let final_path = output_path.join(format!("{}.epub", sanitized_title));
     epub_builder
@@ -48,7 +58,10 @@ pub async fn download_story_to_file(
         .map_err(|e| anyhow!("Failed to generate EPUB file: {:?}", e))?;
 
     info!(path = %final_path.display(), "Successfully generated EPUB file");
-    Ok(final_path)
+    Ok(StoryDownload {
+        epub_response: final_path,
+        metadata: story_metadata,
+    })
 }
 
 /// Downloads and processes a Wattpad story, returning the EPUB as an in-memory byte vector.
@@ -61,9 +74,16 @@ pub async fn download_story_to_memory(
     story_id: u64,
     embed_images: bool,
     concurrent_requests: usize,
-) -> Result<Vec<u8>> {
-    let (epub_builder, _) =
-        prepare_epub_builder(client, story_id, embed_images, concurrent_requests).await?;
+    extra_fields: Option<&[StoryField]>,
+) -> Result<StoryDownload<Vec<u8>>> {
+    let (epub_builder, _, story_metadata) = prepare_epub_builder(
+        client,
+        story_id,
+        embed_images,
+        concurrent_requests,
+        extra_fields,
+    )
+    .await?;
 
     let epub_bytes = epub_builder
         .mem()
@@ -73,7 +93,10 @@ pub async fn download_story_to_memory(
         bytes = epub_bytes.len(),
         "Successfully generated EPUB in memory"
     );
-    Ok(epub_bytes)
+    Ok(StoryDownload {
+        epub_response: epub_bytes,
+        metadata: story_metadata,
+    })
 }
 
 // --- PRIVATE CORE LOGIC ---
@@ -86,24 +109,34 @@ async fn prepare_epub_builder(
     story_id: u64,
     embed_images: bool,
     concurrent_requests: usize,
-) -> Result<(EpubBuilder, String)> {
+    extra_fields: Option<&[StoryField]>,
+) -> Result<(EpubBuilder, String, StoryResponse)> {
     info!("Starting story download and processing");
     let wp_client = WattpadClient::builder()
         .reqwest_client(client.clone())
         .build();
 
     // --- 1. Fetch Story Info ---
-    let story_fields = &[
+    let mut story_fields: Vec<StoryField> = vec![
         StoryField::Title,
         StoryField::Description,
         StoryField::Cover,
+        StoryField::Language(vec![LanguageField::Id]),
         StoryField::User(vec![UserStubField::Username]),
         StoryField::Parts(vec![PartStubField::Id, PartStubField::Title]),
     ];
 
+    if let Some(fields) = extra_fields {
+        story_fields.extend_from_slice(fields);
+    }
+
+    // Remove duplicates (I guess this's not needed, though)
+    story_fields.sort();
+    story_fields.dedup();
+
     let story = wp_client
         .story
-        .get_story_info(story_id, Some(story_fields))
+        .get_story_info(story_id, Some(&story_fields))
         .await
         .map_err(|_| AppError::MetadataFetchFailed)?;
 
@@ -138,7 +171,7 @@ async fn prepare_epub_builder(
     }
 
     // --- 4. Process Chapters Concurrently ---
-    let chapter_metadata = story.parts.ok_or(AppError::MetadataFetchFailed)?;
+    let chapter_metadata = story.parts.as_ref().ok_or(AppError::MetadataFetchFailed)?;
     let total_chapter_count = chapter_metadata.len(); // <-- GET THE COUNT HERE
     info!(count = total_chapter_count, "Starting chapter processing");
 
@@ -195,12 +228,22 @@ async fn prepare_epub_builder(
     let story_title = story.title.as_deref().unwrap_or("Untitled Story");
     let story_description = story.description.as_deref().unwrap_or("");
 
+    let language_id = story.language
+        .as_ref()          // Safely get an Option<&Language>
+        .and_then(|lang| lang.id) // Chain to get the inner Option<u64>
+        .unwrap_or(1);     // Provide a default if any part of the chain was None
+
+    let language_code = lang_util::get_lang_code(language_id);
+    let language_dir = lang_util::get_direction_for_lang_id(language_id);
+
     info!(author, title = story_title, "Building EPUB file");
 
     let mut epub_builder = EpubBuilder::default()
         .with_title(story_title)
         .with_creator(author)
-        .with_description(story_description);
+        .with_description(story_description)
+        .with_direction(language_dir)
+        .add_assets(PLACEHOLDER_EPUB_PATH, PLACEHOLDER_IMAGE_DATA.to_vec());
 
     if let Some(cover_url) = story.cover.as_deref() {
         if let Ok(Some(cover_data)) = download_image(client, cover_url).await {
@@ -217,13 +260,24 @@ async fn prepare_epub_builder(
             EpubHtml::default()
                 .with_title(&chapter.title)
                 .with_file_name(&chapter.file_name)
+                .with_language(language_code)
                 .with_data(chapter.html_content.as_bytes().to_vec()),
         );
     }
 
-    let sanitized_title = html::sanitize_filename(story_title);
+    let sanitized_title = format!(
+        "{}-{}",
+        story_id,
+        sanitize_with_options(
+            story_title,
+            Options {
+                replacement: "_",    // Set the replacement to an underscore
+                ..Default::default() // Use default values for other options like `windows` and `truncate`
+            }
+        )
+    );
 
-    Ok((epub_builder, sanitized_title))
+    Ok((epub_builder, sanitized_title, story))
 }
 
 // --- PRIVATE HELPER FUNCTIONS ---
@@ -240,24 +294,42 @@ async fn process_chapter(
     let mut images = Vec::new();
     let image_map = if embed_images {
         let image_urls = html::collect_image_urls(html_in)?;
-        let image_futures = stream::iter(image_urls)
+
+        let image_download_futures = stream::iter(image_urls)
             .map(|url| async move {
-                match download_image(client, &url).await {
-                    Ok(Some(data)) => Ok((url, data)),
-                    _ => Err(anyhow!("Failed to download image: {}", url)),
-                }
+                let download_result = download_image(client, &url).await.unwrap_or(None);
+                (url, download_result)
             })
             .buffer_unordered(concurrent_requests)
-            .collect::<Vec<Result<(String, Vec<u8>)>>>()
+            .collect::<Vec<(String, Option<Vec<u8>>)>>()
             .await;
 
         let mut map = HashMap::new();
-        for (img_idx, result) in image_futures.into_iter().flatten().enumerate() {
-            let (url, data) = result;
-            let extension = html::infer_extension_from_data(&data).unwrap_or("jpg");
-            let epub_path = format!("images/chapter_{}/image_{}.{}", index, img_idx, extension);
-            map.insert(url, epub_path.clone());
-            images.push(ImageAsset { epub_path, data });
+        let mut successful_image_index = 0;
+        for (original_url, data_option) in image_download_futures {
+            if let Some(data) = data_option {
+                // --- SUCCESSFUL DOWNLOAD ---
+                let extension = html::infer_extension_from_data(&data).unwrap_or("jpg");
+                let epub_path = format!(
+                    "images/chapter_{}/image_{}.{}",
+                    index, successful_image_index, extension
+                );
+
+                // Add the new asset to be bundled with the chapter
+                images.push(ImageAsset {
+                    epub_path: epub_path.clone(),
+                    data,
+                });
+
+                // Map the original URL to the new, unique path for this image
+                map.insert(original_url, epub_path);
+
+                successful_image_index += 1;
+            } else {
+                // --- FAILED OR INVALID URL ---
+                // Map the original URL to the global placeholder path.
+                map.insert(original_url, PLACEHOLDER_EPUB_PATH.to_string());
+            }
         }
         map
     } else {
@@ -276,8 +348,12 @@ async fn process_chapter(
 }
 
 async fn download_image(client: &Client, url: &str) -> Result<Option<Vec<u8>>> {
-    if url.is_empty() {
-        return Ok(None);
+    if reqwest::Url::parse(url).is_err() {
+        warn!(
+            url,
+            "Invalid image URL found. It will be replaced by a placeholder."
+        );
+        return Ok(None); // Signal failure for invalid URLs.
     }
 
     let response = client.get(url).send().await;
@@ -285,11 +361,11 @@ async fn download_image(client: &Client, url: &str) -> Result<Option<Vec<u8>>> {
     match response {
         Ok(resp) if resp.status().is_success() => Ok(Some(resp.bytes().await?.to_vec())),
         Ok(resp) => {
-            warn!(status = %resp.status(), url, "Failed to download image: Non-success status");
+            warn!(status = %resp.status(), url, "Failed to download image (non-success status). Replacing with placeholder.");
             Ok(None)
         }
         Err(e) => {
-            warn!(error = %e, url, "Failed to download image: Request error");
+            warn!(error = %e, url, "Failed to download image (request error). Replacing with placeholder.");
             Ok(None)
         }
     }
