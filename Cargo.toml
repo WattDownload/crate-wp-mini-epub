@@ -1,6 +1,6 @@
 [package]
 name = "wp-mini-epub"
-version = "0.7.2"
+version = "0.7.3"
 edition = "2024"
 description = "Minimal async WP to EPUB downloader | Extremely minimal."
 license = "AGPL-3.0-only"
