@@ -22,7 +22,7 @@ reqwest = "0.12.24"
 sanitize-filename = "0.6.0"
 thiserror = "2.0.17"
 tracing = "0.1.41"
-wp-mini = { path = "../crate-wp-mini" }
+wp-mini = "0.1.2"
 zip = "6.0.0"
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 getrandom = { version = "0.3.4", features = ["wasm_js"] }
