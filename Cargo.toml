@@ -1,6 +1,6 @@
 [package]
 name = "wp-mini-epub"
-version = "0.7.1"
+version = "0.7.2"
 edition = "2024"
 description = "Minimal async WP to EPUB downloader | Extremely minimal."
 license = "AGPL-3.0-only"
@@ -15,14 +15,14 @@ crate-type = ["cdylib", "rlib"]
 [dependencies]
 anyhow = "1.0.100"
 futures = "0.3.31"
-iepub = "1.2.0"
+iepub = "1.2.1"
 lol_html = "2.7.0"
 quick-xml = { version = "0.38.3", features = ["serde"] }
 reqwest = "0.12.24"
 sanitize-filename = "0.6.0"
 thiserror = "2.0.17"
 tracing = "0.1.41"
-wp-mini = "0.1.1"
+wp-mini = { path = "../crate-wp-mini" }
 zip = "6.0.0"
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-getrandom = { version = "0.3.3", features = ["wasm_js"] }
+getrandom = { version = "0.3.4", features = ["wasm_js"] }

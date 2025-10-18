@@ -173,7 +173,7 @@ async fn prepare_epub_builder(
     }
 
     // --- 4. Process Chapters Concurrently ---
-    let chapter_metadata = story.parts.as_ref().ok_or(AppError::MetadataFetchFailed)?;
+    let chapter_metadata = story.parts.clone().ok_or(AppError::MetadataFetchFailed)?;
     let total_chapter_count = chapter_metadata.len(); // <-- GET THE COUNT HERE
     info!(count = total_chapter_count, "Starting chapter processing");
 
