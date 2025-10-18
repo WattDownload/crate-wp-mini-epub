@@ -1,6 +1,6 @@
 [package]
 name = "wp-mini-epub"
-version = "0.7.3"
+version = "0.7.4"
 edition = "2024"
 description = "Minimal async WP to EPUB downloader | Extremely minimal."
 license = "AGPL-3.0-only"
@@ -15,7 +15,7 @@ crate-type = ["cdylib", "rlib"]
 [dependencies]
 anyhow = "1.0.100"
 futures = "0.3.31"
-iepub = "1.2.1"
+iepub = "1.2.2"
 lol_html = "2.7.0"
 quick-xml = { version = "0.38.3", features = ["serde"] }
 reqwest = "0.12.24"
