@@ -4,15 +4,6 @@ use quick_xml::{events::Event, Reader, Writer};
 use std::collections::HashMap;
 use std::io::Cursor;
 use std::sync::{Arc, Mutex};
-
-pub(super) fn escape_xml_chars(s: &str) -> String {
-    s.replace('&', "&amp;")
-        .replace('<', "&lt;")
-        .replace('>', "&gt;")
-        .replace('"', "&quot;")
-        .replace('\'', "&apos;")
-}
-
 pub(super) fn re_encode_html(html_fragment: &str) -> Result<String> {
     let wrapped_html = format!("<root>{}</root>", html_fragment);
     let mut reader = Reader::from_str(&wrapped_html);
