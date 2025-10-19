@@ -1,4 +1,7 @@
-use super::{html, lang_util, models::{ImageAsset, ProcessedChapter}};
+use super::{
+    html, lang_util,
+    models::{ImageAsset, ProcessedChapter},
+};
 use crate::error::AppError;
 use crate::types::StoryDownload;
 use anyhow::{anyhow, Result};
@@ -35,7 +38,7 @@ static PLACEHOLDER_EPUB_PATH: &str = "images/placeholder.jpg";
 /// A `Result` containing the full `PathBuf` to the generated file.
 #[cfg(not(target_arch = "wasm32"))]
 #[instrument(skip(client, concurrent_requests), fields(id = story_id, path = %output_path.display()))]
-pub async fn download_story_to_file(
+pub async fn download_story_to_folder(
     client: &Client,
     story_id: u64,
     embed_images: bool,
@@ -59,8 +62,48 @@ pub async fn download_story_to_file(
 
     info!(path = %final_path.display(), "Successfully generated EPUB file");
     Ok(StoryDownload {
-        sanitized_title: sanitized_title,
+        sanitized_title,
         epub_response: final_path,
+        metadata: story_metadata,
+    })
+}
+
+/// Downloads and processes a Wattpad story, saving the result to provided file.
+///
+/// Excluded for wasm32
+///
+/// # Arguments
+/// * `output_file` - The file of the final `.epub` file.
+///
+/// # Returns
+/// A `Result` containing the full `PathBuf` to the generated file.
+#[cfg(not(target_arch = "wasm32"))]
+#[instrument(skip(client, concurrent_requests), fields(id = story_id, path = %output_file.display()))]
+pub async fn download_story_to_file(
+    client: &Client,
+    story_id: u64,
+    embed_images: bool,
+    concurrent_requests: usize,
+    output_file: &Path,
+    extra_fields: Option<&[StoryField]>,
+) -> Result<StoryDownload<PathBuf>> {
+    let (epub_builder, sanitized_title, story_metadata) = prepare_epub_builder(
+        client,
+        story_id,
+        embed_images,
+        concurrent_requests,
+        extra_fields,
+    )
+    .await?;
+
+    epub_builder
+        .file(&output_file)
+        .map_err(|e| anyhow!("Failed to generate EPUB file: {:?}", e))?;
+
+    info!(path = %output_file.display(), "Successfully generated EPUB file");
+    Ok(StoryDownload {
+        sanitized_title,
+        epub_response: output_file.to_path_buf(),
         metadata: story_metadata,
     })
 }
@@ -95,7 +138,7 @@ pub async fn download_story_to_memory(
         "Successfully generated EPUB in memory"
     );
     Ok(StoryDownload {
-        sanitized_title: sanitized_title,
+        sanitized_title,
         epub_response: epub_bytes,
         metadata: story_metadata,
     })
@@ -230,10 +273,11 @@ async fn prepare_epub_builder(
     let story_title = story.title.as_deref().unwrap_or("Untitled Story");
     let story_description = story.description.as_deref().unwrap_or("");
 
-    let language_id = story.language
-        .as_ref()          // Safely get an Option<&Language>
+    let language_id = story
+        .language
+        .as_ref() // Safely get an Option<&Language>
         .and_then(|lang| lang.id) // Chain to get the inner Option<u64>
-        .unwrap_or(1);     // Provide a default if any part of the chain was None
+        .unwrap_or(1); // Provide a default if any part of the chain was None
 
     let language_code = lang_util::get_lang_code(language_id);
     let language_dir = lang_util::get_direction_for_lang_id(language_id);
@@ -273,7 +317,7 @@ async fn prepare_epub_builder(
         sanitize_with_options(
             story_title,
             Options {
-                replacement: "_",    // Set the replacement to an underscore
+                replacement: "_",     // Set the replacement to an underscore
                 ..Default::default() // Use default values for other options like `windows` and `truncate`
             }
         )

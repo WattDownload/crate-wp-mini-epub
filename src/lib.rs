@@ -19,10 +19,12 @@ pub use wp_mini::types::StoryResponse; // We return this, so re-export it too!
 // Be explicit with the processor module's public API
 #[cfg(not(target_arch = "wasm32"))]
 pub use processor::download_story_to_file; // Only expose `download_story_to_file` in non-WASM builds
+#[cfg(not(target_arch = "wasm32"))]
+pub use processor::download_story_to_folder; // Only expose `download_story_to_folder` in non-WASM builds
 
 pub use processor::download_story_to_memory;
 
-// Your prelude would then also be explicit
+// Prelude would then also be explicit
 pub mod prelude {
     pub use crate::auth::{login, logout};
     pub use crate::error::AppError;
@@ -35,6 +37,11 @@ pub mod prelude {
     // Only expose `download_story_to_file` in non-WASM builds
     #[cfg(not(target_arch = "wasm32"))]
     pub use crate::processor::download_story_to_file;
-    
+
+    // Only expose `download_story_to_folder` in non-WASM builds
+    #[cfg(not(target_arch = "wasm32"))]
+    pub use crate::processor::download_story_to_folder;
+
+
     pub use crate::processor::download_story_to_memory;
 }
