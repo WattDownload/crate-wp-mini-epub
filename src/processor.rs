@@ -386,7 +386,7 @@ async fn process_chapter(
 
     Ok(ProcessedChapter {
         index,
-        title: html::escape_xml_chars(title),
+        title: title.to_string(),
         file_name: format!("{}.xhtml", index),
         html_content: cleaned_html,
         images,
