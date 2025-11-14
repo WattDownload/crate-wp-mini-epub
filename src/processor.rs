@@ -292,7 +292,11 @@ async fn prepare_epub_builder(
         .add_assets(PLACEHOLDER_EPUB_PATH, PLACEHOLDER_IMAGE_DATA.to_vec());
 
     if let Some(cover_url) = story.cover.as_deref() {
-        if let Ok(Some(cover_data)) = download_image(client, cover_url).await {
+        // Create a new String with the "-256-" part replaced
+        let high_res_url = cover_url.replace("-256-", "-512-");
+
+        // Pass a reference to the new high-res URL string
+        if let Ok(Some(cover_data)) = download_image(client, &high_res_url).await {
             info!("Adding cover image to EPUB");
             epub_builder = epub_builder.cover("cover.jpg", cover_data);
         }
