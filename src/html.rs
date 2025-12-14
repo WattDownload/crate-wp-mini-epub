@@ -97,7 +97,7 @@ pub(super) fn rewrite_and_clean_html(
     rewriter.write(html_in.as_bytes())?;
     rewriter.end()?;
 
-    let cleaned_html = output_buffer.lock().unwrap().clone();
+    let cleaned_html = output_buffer.lock()?.clone();
 
     re_encode_html(&cleaned_html).context("Failed to re-encode HTML for XML compatibility")
 }
@@ -119,7 +119,7 @@ pub(super) fn collect_image_urls(html: &str) -> Result<Vec<String>> {
     );
     rewriter.write(html.as_bytes())?;
     rewriter.end()?;
-    Ok(Arc::try_unwrap(urls).unwrap().into_inner().unwrap())
+    Ok(Arc::try_unwrap(urls).unwrap().into_inner()?)
 }
 
 pub(super) fn infer_extension_from_data(data: &[u8]) -> Option<&str> {
