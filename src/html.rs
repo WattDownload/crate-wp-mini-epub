@@ -97,7 +97,7 @@ pub(super) fn rewrite_and_clean_html(
     rewriter.write(html_in.as_bytes())?;
     rewriter.end()?;
 
-    let cleaned_html = output_buffer.lock()?.clone();
+    let cleaned_html = output_buffer.lock().unwrap().clone();
 
     re_encode_html(&cleaned_html).context("Failed to re-encode HTML for XML compatibility")
 }
