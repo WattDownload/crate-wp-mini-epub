@@ -1,5 +1,4 @@
 use anyhow::{Context, Result};
-use reqwest::Client;
 use tracing::info;
 use wp_mini::WattpadClient;
 use crate::error::AppError;

@@ -62,13 +62,11 @@ pub(super) fn rewrite_and_clean_html(
                     Ok(())
                 }),
                 element!("img", move |el| {
-                    if let Some(src) = el.get_attribute("src") {
-                        if embed_images {
-                            if let Some(new_src) = image_map.get(&src) {
+                    if let Some(src) = el.get_attribute("src")
+                        && embed_images
+                            && let Some(new_src) = image_map.get(&src) {
                                 el.set_attribute("src", new_src)?;
                             }
-                        }
-                    }
 
                     // Remove unwanted data attributes from the image tag.
                     el.remove_attribute("data-original-width");
