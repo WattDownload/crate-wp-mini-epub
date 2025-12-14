@@ -37,9 +37,10 @@ static PLACEHOLDER_EPUB_PATH: &str = "images/placeholder.jpg";
 /// # Returns
 /// A `Result` containing the full `PathBuf` to the generated file.
 #[cfg(not(target_arch = "wasm32"))]
-#[instrument(skip(client, concurrent_requests), fields(id = story_id, path = %output_path.display()))]
+#[instrument(skip(reqwest_client, wattpad_client, concurrent_requests), fields(id = story_id, path = %output_path.display()))]
 pub async fn download_story_to_folder(
-    client: &Client,
+    wattpad_client: &WattpadClient,
+    reqwest_client: &Client,
     story_id: u64,
     embed_images: bool,
     concurrent_requests: usize,
@@ -47,7 +48,8 @@ pub async fn download_story_to_folder(
     extra_fields: Option<&[StoryField]>,
 ) -> Result<StoryDownload<PathBuf>> {
     let (epub_builder, sanitized_title, story_metadata) = prepare_epub_builder(
-        client,
+        wattpad_client,
+        reqwest_client,
         story_id,
         embed_images,
         concurrent_requests,
@@ -78,9 +80,10 @@ pub async fn download_story_to_folder(
 /// # Returns
 /// A `Result` containing the full `PathBuf` to the generated file.
 #[cfg(not(target_arch = "wasm32"))]
-#[instrument(skip(client, concurrent_requests), fields(id = story_id, path = %output_file.display()))]
+#[instrument(skip(reqwest_client, wattpad_client, concurrent_requests), fields(id = story_id, path = %output_file.display()))]
 pub async fn download_story_to_file(
-    client: &Client,
+    wattpad_client: &WattpadClient,
+    reqwest_client: &Client,
     story_id: u64,
     embed_images: bool,
     concurrent_requests: usize,
@@ -88,7 +91,8 @@ pub async fn download_story_to_file(
     extra_fields: Option<&[StoryField]>,
 ) -> Result<StoryDownload<PathBuf>> {
     let (epub_builder, sanitized_title, story_metadata) = prepare_epub_builder(
-        client,
+        wattpad_client,
+        reqwest_client,
         story_id,
         embed_images,
         concurrent_requests,
@@ -97,7 +101,7 @@ pub async fn download_story_to_file(
     .await?;
 
     epub_builder
-        .file(&output_file)
+        .file(output_file)
         .map_err(|e| anyhow!("Failed to generate EPUB file: {:?}", e))?;
 
     info!(path = %output_file.display(), "Successfully generated EPUB file");
@@ -112,16 +116,18 @@ pub async fn download_story_to_file(
 ///
 /// # Returns
 /// A `Result` containing the `Vec<u8>` of the generated EPUB file.
-#[instrument(skip(client, concurrent_requests), fields(id = story_id))]
+#[instrument(skip(reqwest_client, wattpad_client, concurrent_requests), fields(id = story_id))]
 pub async fn download_story_to_memory(
-    client: &Client,
+    wattpad_client: &WattpadClient,
+    reqwest_client: &Client,
     story_id: u64,
     embed_images: bool,
     concurrent_requests: usize,
     extra_fields: Option<&[StoryField]>,
 ) -> Result<StoryDownload<Vec<u8>>> {
     let (epub_builder, sanitized_title, story_metadata) = prepare_epub_builder(
-        client,
+        wattpad_client,
+        reqwest_client,
         story_id,
         embed_images,
         concurrent_requests,
@@ -150,16 +156,14 @@ pub async fn download_story_to_memory(
 /// This function is not concerned with the final output format (file or memory).
 /// It returns the builder and a sanitized title for potential filename usage.
 async fn prepare_epub_builder(
-    client: &Client,
+    wattpad_client: &WattpadClient,
+    reqwest_client: &Client,
     story_id: u64,
     embed_images: bool,
     concurrent_requests: usize,
     extra_fields: Option<&[StoryField]>,
 ) -> Result<(EpubBuilder, String, StoryResponse)> {
     info!("Starting story download and processing");
-    let wp_client = WattpadClient::builder()
-        .reqwest_client(client.clone())
-        .build();
 
     // --- 1. Fetch Story Info ---
     let mut story_fields: Vec<StoryField> = vec![
@@ -179,7 +183,7 @@ async fn prepare_epub_builder(
     story_fields.sort();
     story_fields.dedup();
 
-    let story = wp_client
+    let story = wattpad_client
         .story
         .get_story_info(story_id, Some(&story_fields))
         .await
@@ -188,7 +192,7 @@ async fn prepare_epub_builder(
     info!(title = ?story.title, "Successfully fetched story metadata");
 
     // --- 2. Fetch Story Content as a ZIP ---
-    let zip_bytes = wp_client
+    let zip_bytes = wattpad_client
         .story
         .get_story_content_zip(story_id)
         .await
@@ -235,7 +239,7 @@ async fn prepare_epub_builder(
             .map(|(i, (metadata, html_content))| async move {
                 // `metadata` is owned, `html_content` is owned
                 process_chapter(
-                    client,
+                    reqwest_client,
                     i + 1,
                     metadata.title.as_deref().unwrap_or("Untitled Chapter"),
                     &html_content,
@@ -296,7 +300,7 @@ async fn prepare_epub_builder(
         let high_res_url = cover_url.replace("-256-", "-512-");
 
         // Pass a reference to the new high-res URL string
-        if let Ok(Some(cover_data)) = download_image(client, &high_res_url).await {
+        if let Ok(Some(cover_data)) = download_image(reqwest_client, &high_res_url).await {
             info!("Adding cover image to EPUB");
             epub_builder = epub_builder.cover("cover.jpg", cover_data);
         }
@@ -332,9 +336,9 @@ async fn prepare_epub_builder(
 
 // --- PRIVATE HELPER FUNCTIONS ---
 
-#[instrument(skip(client, html_in), fields(index, title))]
+#[instrument(skip(reqwest_client, html_in), fields(index, title))]
 async fn process_chapter(
-    client: &Client,
+    reqwest_client: &Client,
     index: usize,
     title: &str,
     html_in: &str,
@@ -347,7 +351,7 @@ async fn process_chapter(
 
         let image_download_futures = stream::iter(image_urls)
             .map(|url| async move {
-                let download_result = download_image(client, &url).await.unwrap_or(None);
+                let download_result = download_image(reqwest_client, &url).await.unwrap_or(None);
                 (url, download_result)
             })
             .buffer_unordered(concurrent_requests)

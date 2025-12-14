@@ -4,25 +4,23 @@ use tracing::info;
 use wp_mini::WattpadClient;
 use crate::error::AppError;
 
-pub async fn login(client: &Client, username: &str, password: &str) -> Result<(), AppError> {
+pub async fn login(
+    wp_client: &WattpadClient,
+    username: &str,
+    password: &str
+) -> Result<(), AppError> {
     info!(username, "Attempting to login via core::auth");
-    let wp_client = WattpadClient::builder()
-        .reqwest_client(client.clone())
-        .build();
-
     wp_client
         .authenticate(username, password)
         .await
+        .context("Wattpad login request failed")
         .map_err(|_e| AppError::AuthenticationFailed)?;
+
     Ok(())
 }
 
-pub async fn logout(client: &Client) -> Result<()> {
+pub async fn logout(wp_client: &WattpadClient) -> Result<()> {
     info!("Attempting to logout via core::auth");
-    let wp_client = WattpadClient::builder()
-        .reqwest_client(client.clone())
-        .build();
-
     wp_client
         .deauthenticate()
         .await
