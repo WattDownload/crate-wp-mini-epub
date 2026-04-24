@@ -13,16 +13,16 @@ authors = ["ZhiFenBL"]
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-anyhow = "1.0.100"
-futures = "0.3.31"
-iepub = "1.2.6"
-lol_html = "2.7.0"
-quick-xml = { version = "0.38.4", features = ["serde"] }
-reqwest = { version = "0.12.25", default-features = false, features = ["rustls-tls"] }
+anyhow = "1.0.102"
+futures = "0.3.32"
+iepub = "1.3.5"
+lol_html = "2.7.2"
+quick-xml = { version = "0.39.2", features = ["serde"] }
+reqwest = { version = "0.13.2", default-features = false, features = ["rustls", "http2"] }
 sanitize-filename = "0.6.0"
-thiserror = "2.0.17"
-tracing = "0.1.43"
-wp-mini = "0.2.0-alpha.2"
-zip = "6.0.0"
+thiserror = "2.0.18"
+tracing = "0.1.44"
+wp-mini = "0.2.0-alpha.3"
+zip = "8.5.1"
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-getrandom = { version = "0.3.4", features = ["wasm_js"] }
+getrandom = { version = "0.4.2", features = ["wasm_js"] }
